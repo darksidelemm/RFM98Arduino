@@ -2,6 +2,7 @@
   RFM98W.h - RFM98W Comms Library
   
   Copyright (C) 2014 Mark Jessop <vk5qi@rfhead.net>
+  Original code by David Ackerman.
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -37,6 +38,8 @@
 #define REG_PAYLOAD_LENGTH          0x22
 #define REG_IRQ_FLAGS_MASK          0x11
 #define REG_HOP_PERIOD              0x24
+#define REG_MODEM_STATUS            0x18
+#define REG_PACKET_SNR              0x19
 
 // MODES
 // MODES
@@ -94,6 +97,14 @@
 #define LNA_MAX_GAIN                0x23  // 0010 0011
 #define LNA_OFF_GAIN                0x00
 
+// Modem Status Bitmasks
+#define MODEM_STATUS_SIGNAL_DETECTED    0x01
+#define MODEM_STATUS_SIGNAL_SYNC        0x02
+#define MODEM_STATUS_RX_IN_PROGRESS  0x04
+#define MODEM_STATUS_GOT_HEADER     0x08
+#define MODEM_STATUS_MODEM_CLEAR    0x10
+
+
 class RFM98W {
     public:
         // Constructors
@@ -106,6 +117,8 @@ class RFM98W {
         void startReceiving();
         int receiveMessage(char *message);
         uint8_t checkRX();
+        void writeRegister(byte addr, byte value);
+        byte readRegister(byte addr);
 
     private:
         uint8_t SS_PIN;
@@ -113,8 +126,6 @@ class RFM98W {
         uint8_t DIO5_PIN;
         byte currentMode;
 
-        void writeRegister(byte addr, byte value);
-        byte readRegister(byte addr);
 };
 
 

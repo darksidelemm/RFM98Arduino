@@ -2,6 +2,7 @@
   RFM98W.cpp - RFM98W Comms Library
   
   Copyright (C) 2014 Mark Jessop <vk5qi@rfhead.net>
+  Original code by David Ackerman.
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by

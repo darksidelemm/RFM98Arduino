@@ -1,11 +1,3 @@
-RFM98Arduino
-============
-
-This is an attempt to produce a Arduino library to control a HopeRF RFM98W module.
-
-
-
-The 'lora_groundstation' Arduino sketch connects to the LORA module and outputs the following data strings, which the 'lora_groundation.py' python script will interpret, display, and (optionally) upload to habitat.
 
 Receiver Status
 ---------------

@@ -40,17 +40,56 @@ void setup(){
 }
 
 void loop(){
-    Serial.print("Current RSSI: ");
-    Serial.println(rfm.getRSSI());
+    rx_status();
 
     if(rfm.checkRX()){
-      int packet_size = rfm.receiveMessage(message);
-      int16_t packet_rssi = rfm.getRSSIPacket();
-      Serial.print("Got Packet RSSI: ");
-      Serial.println(packet_rssi);
-      Serial.print("Packet Data:");
-      Serial.println(message);
+      get_packet();
+      packet_info();
+
     }
     delay(1000);
 
+}
+
+void get_packet(){
+    int packet_size = rfm.receiveMessage(message);
+    Serial.print("PKT,");
+    Serial.println(packet_size);
+    Serial.write((uint8_t*)message, packet_size);
+}
+
+void rx_status(){
+    uint8_t modem_status = rfm.readRegister(REG_MODEM_STATUS);
+    int16_t rssi = rfm.getRSSI();
+
+    uint8_t signal_detected = (modem_status&MODEM_STATUS_SIGNAL_DETECTED)>0;
+    uint8_t signal_sync = (modem_status&MODEM_STATUS_SIGNAL_SYNC)>0;
+    uint8_t rx_in_progress = (modem_status&MODEM_STATUS_RX_IN_PROGRESS)>0;
+    uint8_t got_header = (modem_status&MODEM_STATUS_GOT_HEADER)>0;
+
+    Serial.print("STATUS,");
+    Serial.print(rssi);
+    Serial.print(",");
+    Serial.print(modem_status);
+    /*
+    Serial.print(signal_detected);
+    Serial.print(",");
+    Serial.print(signal_sync);
+    Serial.print(",");
+    Serial.print(rx_in_progress);
+    Serial.print(",");
+    Serial.print(got_header);
+    */
+    Serial.println("");
+}
+
+void packet_info(){
+    int16_t packet_rssi = rfm.getRSSIPacket();
+    uint8_t packet_snr = rfm.readRegister(REG_PACKET_SNR);
+
+    Serial.print("PKTINFO,");
+    Serial.print(packet_rssi);
+    Serial.print(",");
+    Serial.print(packet_snr);
+    Serial.println("");
 }
