@@ -21,6 +21,8 @@
 #ifndef RFM98W_h
 #define RFM98W_h
 
+#define PAYLOAD_LENGTH  55
+
 #define REG_FIFO                    0x00
 #define REG_FIFO_ADDR_PTR           0x0D 
 #define REG_FIFO_TX_BASE_AD         0x0E
@@ -35,19 +37,22 @@
 #define REG_DIO_MAPPING_2           0x41
 #define REG_MODEM_CONFIG            0x1D
 #define REG_MODEM_CONFIG2           0x1E
+#define REG_MODEM_CONFIG3           0x26
 #define REG_PAYLOAD_LENGTH          0x22
 #define REG_IRQ_FLAGS_MASK          0x11
 #define REG_HOP_PERIOD              0x24
 #define REG_MODEM_STATUS            0x18
 #define REG_PACKET_SNR              0x19
+#define REG_DETECT_OPT              0x31
+#define REG_DETECTION_THRESHOLD     0x37
+#define REG_FREQ_ERROR              0x28
 
 // MODES
 // MODES
 #define RF96_MODE_RX_CONTINUOUS     0x85
 #define RF96_MODE_SLEEP             0x80
 #define RF96_MODE_STANDBY           0x81
-
-#define PAYLOAD_LENGTH              80
+#define RF96_MODE_TX                0x83
 
 // Modem Config 1
 #define EXPLICIT_MODE               0x00
@@ -112,19 +117,25 @@ class RFM98W {
 
         int16_t getRSSI();
         int16_t getRSSIPacket();
+        int32_t getFrequencyError();
         void setMode(byte newMode);
-        void setLoRaMode();
+        void setLoRaMode(double Frequency);
         void startReceiving();
         int receiveMessage(char *message);
-        uint8_t checkRX();
+        uint8_t checkInterrupt();
         void writeRegister(byte addr, byte value);
         byte readRegister(byte addr);
+        void setFrequency(double Frequency);
+        void setupTX();
+        void sendData(char *buffer, int len);
+        uint8_t getLastMessageFlags();
 
     private:
         uint8_t SS_PIN;
         uint8_t DIO0_PIN;
         uint8_t DIO5_PIN;
         byte currentMode;
+        uint8_t lastMessageFlags;
 
 };
 

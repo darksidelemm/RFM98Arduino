@@ -29,6 +29,7 @@ RFM98W::RFM98W(uint8_t SS, uint8_t DIO0, uint8_t DIO5){
     this->DIO5_PIN = DIO5;
 
     this->currentMode = 0x81;
+    this->lastMessageFlags = 0x00;
 
     pinMode(this->SS_PIN, OUTPUT);
     digitalWrite(this->SS_PIN, HIGH);
@@ -58,13 +59,30 @@ int16_t RFM98W::getRSSI(){
     return (int16_t)rssi - 137;
 }
 
-uint8_t RFM98W::checkRX(){
+uint8_t RFM98W::checkInterrupt(){
     return digitalRead(this->DIO0_PIN);
 }
 
 int16_t RFM98W::getRSSIPacket(){
     uint8_t rssi = this->readRegister(REG_RSSI_PACKET);
     return (int16_t)rssi - 137;
+}
+
+int32_t RFM98W::getFrequencyError(){
+  int32_t Temp;
+  
+  Temp = (int32_t)readRegister(REG_FREQ_ERROR) & 7;
+  Temp <<= 8L;
+  Temp += (int32_t)readRegister(REG_FREQ_ERROR+1);
+  Temp <<= 8L;
+  Temp += (int32_t)readRegister(REG_FREQ_ERROR+2);
+  
+  if (readRegister(REG_FREQ_ERROR) & 8)
+  {
+    Temp = Temp - 524288;
+  }
+
+  return Temp;
 }
 
 void RFM98W::setMode(byte newMode)
@@ -74,14 +92,19 @@ void RFM98W::setMode(byte newMode)
   
   switch (newMode) 
   {
+    case RF96_MODE_TX:
+      Serial.println("Changing to Transmit Mode");
+      this->writeRegister(REG_LNA, LNA_OFF_GAIN);  // TURN LNA OFF FOR TRANSMITT
+      this->writeRegister(REG_PA_CONFIG, PA_MAX_UK);
+      this->writeRegister(REG_OPMODE, newMode);
+      this->currentMode = newMode; 
+      break;
     case RF96_MODE_RX_CONTINUOUS:
       this->writeRegister(REG_PA_CONFIG, PA_OFF_BOOST);  // TURN PA OFF FOR RECIEVE??
       this->writeRegister(REG_LNA, LNA_MAX_GAIN);  // LNA_MAX_GAIN);  // MAX GAIN FOR RECIEVE
       this->writeRegister(REG_OPMODE, newMode);
       this->currentMode = newMode; 
       Serial.println("Changing to Receive Continuous Mode\n");
-      break;
-      
       break;
     case RF96_MODE_SLEEP:
       Serial.println("Changing to Sleep Mode"); 
@@ -106,23 +129,45 @@ void RFM98W::setMode(byte newMode)
   Serial.println(" Mode Change Done");
   return;
 }
+/*
+void RFM98W::setFrequency(){
+ // this->writeRegister(0x06, 0x6C);
+ // this->writeRegister(0x07, 0x9C);
+ // this->writeRegister(0x08, 0xCC);
 
-void RFM98W::setLoRaMode()
+  // 431.650MHz
+  this->writeRegister(0x06, 0x6B);
+  this->writeRegister(0x07, 0xE9);
+  this->writeRegister(0x08, 0x99);
+}
+*/
+void RFM98W::setFrequency(double Frequency)
+{
+  unsigned long FrequencyValue;
+
+  Frequency = Frequency * 7110656 / 434000000;
+  FrequencyValue = (unsigned long)(Frequency);
+
+  writeRegister(0x06, (FrequencyValue >> 16) & 0xFF);   // Set frequency
+  writeRegister(0x07, (FrequencyValue >> 8) & 0xFF);
+  writeRegister(0x08, FrequencyValue & 0xFF);
+
+}
+
+void RFM98W::setLoRaMode(double Frequency)
 {
   Serial.println("Setting LoRa Mode");
   this->setMode(RF96_MODE_SLEEP);
   this->writeRegister(REG_OPMODE,0x80);
    
   // frequency  
-  this->setMode(RF96_MODE_SLEEP);
+  //this->setMode(RF96_MODE_SLEEP);
   /*
   writeRegister(0x06, 0x6C);
   writeRegister(0x07, 0x9C);
   writeRegister(0x08, 0xCC);
   */
-  this->writeRegister(0x06, 0x6C);
-  this->writeRegister(0x07, 0x9C);
-  this->writeRegister(0x08, 0x8E);
+  this->setFrequency(Frequency);
    
   Serial.println("LoRa Mode Set");
   
@@ -133,14 +178,17 @@ void RFM98W::setLoRaMode()
 
 void RFM98W::startReceiving()
 {
-  this->writeRegister(REG_MODEM_CONFIG, EXPLICIT_MODE | ERROR_CODING_4_8 | BANDWIDTH_20K8);
-  this->writeRegister(REG_MODEM_CONFIG2, SPREADING_11 | CRC_ON);
+  this->writeRegister(REG_MODEM_CONFIG, EXPLICIT_MODE | ERROR_CODING_4_8 | BANDWIDTH_125K);
+  this->writeRegister(REG_MODEM_CONFIG2, SPREADING_10 | CRC_ON);
   this->writeRegister(0x26, 0x0C);    // 0000 1 1 00
   Serial.println("Set slow mode");
   
-  this->writeRegister(0x26, 0x0C);    // 0000 1 1 00
-  this->writeRegister(REG_PAYLOAD_LENGTH, 80);
-  this->writeRegister(REG_RX_NB_BYTES, 80);
+  this->writeRegister(REG_DETECT_OPT,0x03);
+  this->writeRegister(REG_DETECTION_THRESHOLD,0x0A);
+
+  this->writeRegister(REG_PAYLOAD_LENGTH, PAYLOAD_LENGTH);
+  this->writeRegister(REG_RX_NB_BYTES, PAYLOAD_LENGTH);
+
 
   this->writeRegister(REG_HOP_PERIOD,0xFF);
   this->writeRegister(REG_FIFO_ADDR_PTR, this->readRegister(REG_FIFO_RX_BASE_AD));   
@@ -149,11 +197,29 @@ void RFM98W::startReceiving()
   this->setMode(RF96_MODE_RX_CONTINUOUS); 
 }
 
+void RFM98W::setupTX(){
+  this->writeRegister(REG_MODEM_CONFIG, EXPLICIT_MODE | ERROR_CODING_4_8 | BANDWIDTH_125K);
+
+  this->writeRegister(REG_MODEM_CONFIG2, SPREADING_10 | CRC_ON);
+  
+  this->writeRegister(0x26, 0x0C);    // 0000 1 1 00
+  this->writeRegister(REG_PAYLOAD_LENGTH,PAYLOAD_LENGTH);
+  this->writeRegister(REG_RX_NB_BYTES,PAYLOAD_LENGTH);
+  
+  // Change the DIO mapping to 01 so we can listen for TxDone on the interrupt
+  this->writeRegister(REG_DIO_MAPPING_1,0x40);
+  this->writeRegister(REG_DIO_MAPPING_2,0x00);
+  
+  // Go to standby mode
+  this->setMode(RF96_MODE_STANDBY);
+}
+
 int RFM98W::receiveMessage(char *message)
 {
   int i, Bytes, currentAddr;
 
   int x = this->readRegister(REG_IRQ_FLAGS);
+  this->lastMessageFlags = x;
   // printf("Message status = %02Xh\n", x);
   
   // clear the rxDone flag
@@ -187,4 +253,47 @@ int RFM98W::receiveMessage(char *message)
   } 
   
   return Bytes;
+}
+
+uint8_t RFM98W::getLastMessageFlags(){
+    return this->lastMessageFlags;
+}
+
+void RFM98W::sendData(char *buffer, int len)
+{
+  int Length;
+  if(len==0){
+    Length = strlen(buffer);
+  }
+  
+  //Serial.print("Sending "); Serial.print(Length);Serial.println(" bytes");
+  //Serial.println(buffer);
+  
+  this->setMode(RF96_MODE_STANDBY);
+
+  this->writeRegister(REG_FIFO_TX_BASE_AD, 0x00);  // Update the address ptr to the current tx base address
+  this->writeRegister(REG_FIFO_ADDR_PTR, 0x00); 
+  
+  digitalWrite(this->SS_PIN, LOW);
+  // tell SPI which address you want to write to
+  SPI.transfer(REG_FIFO | 0x80);
+  
+  // loop over the payload and put it on the buffer 
+  for (int i = 0; i < PAYLOAD_LENGTH; i++)
+  {
+    if (i < Length)
+    {
+      SPI.transfer(buffer[i] & 0x7F);
+      Serial.write(buffer[i]);
+    }
+    else
+    {
+      SPI.transfer(0);
+    }
+  }
+  digitalWrite(this->SS_PIN, HIGH);
+
+  
+  // go into transmit mode
+  this->setMode(RF96_MODE_TX);
 }
