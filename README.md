@@ -30,7 +30,10 @@ PKT,packet_length\r\n
 
 Data Packet Info
 ----------------
-PKTINFO,packet_rssi,packet_snr\r\n
+PKTINFO,packet_rssi,packet_snr,pkt_freqerror,irq_flags\r\n
 
 * packet_rssi = RSSI of last received packet (dBm)
 * packet_snr = SNR of last received packet (dBm*4 - see page 105 of RFM98W datasheet)
+* pkt_freqerror = Contents of RFM98W's RegFeiMSB/Mid/LSB registers.
+* irq_flags = Contents of RFM98W's RegIrqFlags Register.
+
