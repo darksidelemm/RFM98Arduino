@@ -199,4 +199,5 @@ while True:
 	try:
 		main()
 	except Exception as e:
-		print "Error: %s" % e
+		print "Error: %s" % e # This is mainly to catch any serial comms issues i.e. if the usb-serial adaptor is knocked loose.
+		time.sleep(2) # Wait a bit before trying again.
